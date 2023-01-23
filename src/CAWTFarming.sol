@@ -34,7 +34,7 @@ contract CAWTFarming is Ownable {
             "Farming: Should receive at least 0.01 ether."
         );
         require(
-            _time - block.timestamp > 86400,
+            _time > block.timestamp + 86400,
             "Farming: Should stake for at least 1 day."
         );
         _counter.increment();
@@ -70,12 +70,17 @@ contract CAWTFarming is Ownable {
     }
 
     function claim(bytes32 _stakeId) external {
+        Stake storage stakeInfo = farmPools[msg.sender][_stakeId];
         require(
-            farmPools[msg.sender][_stakeId].end >= block.timestamp,
-            "Farming: No stake found."
+            stakeInfo.status == StakeStatus.DEPOSITED,
+            "Farming: You need to deposit first."
+        );
+        require(
+            farmPools[msg.sender][_stakeId].end <= block.timestamp,
+            "Farming: It is too early to claim."
         );
         uint256 tokenAmount = pendingReward(_stakeId);
-        Stake storage stakeInfo = farmPools[msg.sender][_stakeId];
+        stakeInfo.start = 0;
         stakeInfo.end = 0;
         stakeInfo.status = StakeStatus.CLAIMED;
         token.transfer(msg.sender, tokenAmount);
@@ -87,7 +92,6 @@ contract CAWTFarming is Ownable {
             stakeInfo.status == StakeStatus.CLAIMED,
             "Farming: You need claim your ticket."
         );
-        require(stakeInfo.end == 0, "Farming: No stake found.");
         stakeInfo.status = StakeStatus.WITHDRAWN;
         uint256 amount = stakeInfo.amount;
         stakeInfo.amount = 0;

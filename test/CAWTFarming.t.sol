@@ -113,7 +113,53 @@ contract CAWTFarmingTest is Test {
         assertEq(farming.pendingReward(id), 0);
     }
 
-    function xtestWithdraw() external {
+    function testClaim() external {
+        //------------------------------------------------------------REVERTS-----------------------------------
+        vm.expectRevert("Farming: You need to deposit first.");
+        farming.claim(
+            0x275af6faab5a8bbfc96dddbb03dd33a529bc7648dd82d8b0b0997609adbfc8ea
+        );
+
+        startHoax(0xBbd3b61B47D93469C757121b8C5A0a1e40B6bFBA, 100e18);
+
+        farming.deposit{value: 1 ether}(block.timestamp + 100000);
+        bytes32 id = farming.farmIds(
+            0xBbd3b61B47D93469C757121b8C5A0a1e40B6bFBA,
+            0
+        );
+        vm.warp(block.timestamp + 10000);
+
+        vm.expectRevert("Farming: It is too early to claim.");
+        farming.claim(id);
+
+        //--------------------------------------------FIRST CLAIM------------------------------
+
+        vm.warp(block.timestamp + 90000);
+
+        farming.claim(id);
+
+        (
+            uint256 amount,
+            uint256 start,
+            uint256 end,
+            CAWTFarming.StakeStatus stakeStatus
+        ) = farming.farmPools(0xBbd3b61B47D93469C757121b8C5A0a1e40B6bFBA, id);
+        assertEq(farming.pendingReward(id), 0);
+        assertEq(
+            token.balanceOf(0xBbd3b61B47D93469C757121b8C5A0a1e40B6bFBA),
+            100000 * farming.CAWTPerSec()
+        );
+        assertEq(address(farming).balance, 1 ether);
+        assertEq(amount, 1 ether);
+        assertEq(start, 0);
+        assertEq(end, 0);
+        if (stakeStatus != CAWTFarming.StakeStatus.CLAIMED) {
+            revert("StakeStatus is not CLAIMED");
+        }
+    }
+
+    function testWithdraw() external {
+        //------------------------------------------------------------REVERTS-----------------------------------
         startHoax(0xBbd3b61B47D93469C757121b8C5A0a1e40B6bFBA, 100e18);
 
         farming.deposit{value: 1 ether}(block.timestamp + 100000);
@@ -124,6 +170,11 @@ contract CAWTFarmingTest is Test {
         );
 
         vm.warp(block.timestamp + 100000);
+        vm.expectRevert("Farming: You need claim your ticket.");
+        farming.withdraw(id);
+        //--------------------------------------------FIRST WITHDRAW------------------------------
+
+        farming.claim(id);
         farming.withdraw(id);
 
         (
