@@ -16,7 +16,7 @@ contract CAWTLottery is Ownable {
         address[100] _users;
         LotteryStatus status;
     }
-
+    bytes32[] public lotteryIds;
     enum LotteryStatus {
         NOTHING,
         ACTIVE,
@@ -27,18 +27,20 @@ contract CAWTLottery is Ownable {
     uint256 public constant PRIZE = 0.01 ether;
 
     mapping(bytes32 => Lottery) public lotteryPools;
+
     constructor(address _randomGenerator) {
         randomGenerator = _randomGenerator;
-    }   
+    }
+
     function createLottery() public onlyOwner {
         bytes32 lotteryId = keccak256(
             abi.encodePacked(msg.sender, block.timestamp, _counter.current())
         );
+        lotteryIds.push(lotteryId);
         _counter.increment();
         Lottery storage lottery = lotteryPools[lotteryId];
         lottery.start = block.timestamp;
         lottery.status = LotteryStatus.ACTIVE;
-        //create lottery
     }
 
     function participate(bytes32 lotteryId, uint8 lotteryNumber) public {
@@ -79,6 +81,7 @@ contract CAWTLottery is Ownable {
             lotteryPools[lotteryId].status == LotteryStatus.PENDING,
             "Lottery: Lottery is not pending."
         );
+        require(address(this).balance >= PRIZE, "Lottery: Not enough funds.");
         lotteryPools[lotteryId].status = LotteryStatus.AWARDED;
         uint256 winnerIndex = random % TICKETS_COUNT;
         address winner = lotteryPools[lotteryId]._users[winnerIndex];
@@ -87,7 +90,7 @@ contract CAWTLottery is Ownable {
         //send prize to winner
     }
 
-    function setToken(address _token) external {
+    function setToken(address _token) external onlyOwner {
         token = IERC20(_token);
     }
 }
